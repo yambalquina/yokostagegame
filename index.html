@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pixel Hero Saga: Final Tuned</title>
+    <title>Pixel Hero Saga: Final Interface</title>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: #000; font-family: 'Courier New', monospace; overflow: hidden; touch-action: none; user-select: none; width: 100vw; height: 100vh; }
@@ -12,9 +12,9 @@
         
         canvas { 
             background: #4facfe; 
-            width: 100%; 
+            width: 100vw; 
             height: auto; 
-            max-height: 60vh; /* 縦画面でCanvasが場所を取りすぎないように調整 */
+            max-height: 70vh; 
             image-rendering: pixelated; 
             display: block; 
             margin: 0 auto; 
@@ -22,13 +22,11 @@
 
         /* --- コントローラー層 --- */
         .controls { 
-            position: relative;
-            width: 100%;
-            flex-grow: 1;
-            background: #222;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            pointer-events: none;
             z-index: 100;
-            /* 下部の埋まり防止：SafeArea分を底上げ */
-            padding-bottom: env(safe-area-inset-bottom);
         }
 
         .d-pad, .btns { 
@@ -36,18 +34,24 @@
             pointer-events: auto;
         }
 
-        /* --- 横画面（Landscape）時の配置 --- */
+        /* --- 横画面（Landscape）配置 --- */
         @media (orientation: landscape) {
             canvas { max-height: 100vh; width: auto; aspect-ratio: 16 / 9; }
-            .controls { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent !important; pointer-events: none; }
-            .d-pad { bottom: calc(15% + env(safe-area-inset-bottom)); left: calc(8% + env(safe-area-inset-left)); }
-            .btns { bottom: calc(15% + env(safe-area-inset-bottom)); right: calc(8% + env(safe-area-inset-right)); width: 160px; height: 150px; }
+            .d-pad { 
+                bottom: calc(10% + env(safe-area-inset-bottom));
+                left: calc(5% + env(safe-area-inset-left));
+            }
+            .btns { 
+                bottom: calc(10% + env(safe-area-inset-bottom));
+                right: calc(5% + env(safe-area-inset-right));
+                width: 160px; height: 140px;
+            }
         }
 
-        /* --- 縦画面（Portrait）時の配置修正 --- */
+        /* --- 縦画面（Portrait）配置：埋まり防止のために底上げ --- */
         @media (orientation: portrait) {
-            .d-pad { bottom: 60px; left: 10px; } /* 底上げ */
-            .btns { bottom: 60px; right: 10px; width: 150px; height: 150px; } /* 底上げ */
+            .d-pad { bottom: 80px; left: 20px; }
+            .btns { bottom: 80px; right: 20px; width: 160px; height: 140px; }
         }
 
         .d-pad { display: grid; grid-template-columns: repeat(3, 60px); grid-template-rows: repeat(3, 60px); gap: 5px; }
@@ -59,21 +63,21 @@
         .btn:active { transform: translateY(4px); box-shadow: none; background: #666; }
         .btn-dir { width: 60px; height: 60px; font-size: 24px; background: #333; }
 
-        /* --- Aボタン（上側：かめはめ波） --- */
+        /* --- Aボタン（左上：ジャンプ） --- */
         #b-a { 
             position: absolute; 
-            right: 10px; top: 0; 
+            left: 0; top: 0; 
             width: 80px; height: 80px; 
             border-radius: 50%; 
             background: #4caf50; 
             font-size: 28px; 
         }
 
-        /* --- Bボタン（下側：ジャンプ & ダッシュ） --- */
+        /* --- Bボタン（右下：攻撃＆ダッシュ） --- */
         #b-b { 
             position: absolute; 
-            left: 0; bottom: 0; 
-            width: 90px; height: 90px; /* ジャンプは重要なので少し大きく */
+            right: 0; bottom: 0; 
+            width: 80px; height: 80px; 
             border-radius: 50%; 
             background: #e91e63; 
             font-size: 28px; 
@@ -123,7 +127,7 @@ const WORLD_WIDTH = 150;
 let state = {
     stage: 1, section: 1, cameraX: 0, coins: 0,
     player: null, entities: [], tiles: [],
-    inputs: { left: false, right: false, up: false, down: false, a: false, b: false, bHold: 0, aHold: 0 }
+    inputs: { left: false, right: false, up: false, down: false, a: false, b: false, bHold: 0 }
 };
 
 class Player {
@@ -131,26 +135,16 @@ class Player {
     reset() { this.x = 40; this.y = 100; this.vx = 0; this.vy = 0; this.facing = 1; this.onGround = false; this.isCrouching = false; this.hipDrop = false; this.invincible = 0; }
     update() {
         if (this.invincible > 0) this.invincible--;
-        
-        // Bボタン（下側）でダッシュ
+        // Bボタンでダッシュ
         let speed = state.inputs.b ? 3.8 : 2.5;
+        if (state.inputs.left) { this.vx = -speed; this.facing = -1; } else if (state.inputs.right) { this.vx = speed; this.facing = 1; } else { this.vx *= 0.85; }
+        // Aボタンでジャンプ
+        if (state.inputs.a && this.onGround) { this.vy = JUMP_FORCE; this.onGround = false; }
         
-        if (state.inputs.left) { this.vx = -speed; this.facing = -1; } 
-        else if (state.inputs.right) { this.vx = speed; this.facing = 1; } 
-        else { this.vx *= 0.85; }
-
-        // Bボタン（下側）でジャンプ
-        if (state.inputs.b && this.onGround) {
-            this.vy = JUMP_FORCE;
-            this.onGround = false;
-        }
-
         this.isCrouching = state.inputs.down && this.onGround;
         if (state.inputs.down && !this.onGround) { this.hipDrop = true; this.vy = 8; }
         if (this.onGround) this.hipDrop = false;
-
         this.vy += GRAVITY; this.x += this.vx; this.collide('x'); this.y += this.vy; this.collide('y');
-        
         if (this.y > canvas.height + 50) this.damage(true);
         state.cameraX += (this.x - canvas.width/2 - state.cameraX) * 0.12;
         state.cameraX = Math.max(0, state.cameraX);
@@ -181,9 +175,25 @@ class Player {
     }
 }
 
+class Enemy {
+    constructor(type, x, y) { Object.assign(this, {type, x, y, w: 16, h: 16, vx: -1.2, dead: false}); }
+    update() {
+        this.x += this.vx;
+        state.tiles.forEach(t => { if (this.x < t.x+t.w && this.x+this.w > t.x && this.y < t.y+t.h && this.y+this.h > t.y) this.vx *= -1; });
+        let p = state.player;
+        if (p.x < this.x + this.w && p.x + p.w > this.x && p.y < this.y + this.h && p.y + p.h > this.y) {
+            if (p.vy > 0 && p.y < this.y || p.hipDrop) { this.dead = true; p.vy = -6; } else { p.damage(); }
+        }
+    }
+    draw() { ctx.fillStyle = '#080'; ctx.fillRect(this.x-state.cameraX, this.y, this.w, this.h); }
+}
+
 class Bullet {
     constructor(x, y, vx) { Object.assign(this, {x, y, vx, w:10, h:10, life:100}); }
-    update() { this.x += this.vx; this.life--; }
+    update() {
+        this.x += this.vx; this.life--;
+        state.entities.forEach(e => { if (e instanceof Enemy && this.x < e.x+e.w && this.x+this.w > e.x && this.y < e.y+e.h && this.y+this.h > e.y) { e.dead = true; this.dead = true; } });
+    }
     draw() { ctx.fillStyle = '#0ff'; ctx.beginPath(); ctx.arc(this.x-state.cameraX+5, this.y+5, 5, 0, 7); ctx.fill(); }
 }
 
@@ -193,6 +203,7 @@ function generateLevel() {
         if (i > 15 && i % 14 === 0 && Math.random() > 0.4) continue;
         state.tiles.push({x: i*TILE_SIZE, y: 220, w: TILE_SIZE, h: 50, type: 'block'});
         if (i % 7 === 0) state.tiles.push({x: i*TILE_SIZE, y: 155, w: 32, h: 8, type: 'block'});
+        if (i > 20 && i % 18 === 0) state.entities.push(new Enemy('mouse', i*TILE_SIZE, 204));
     }
     state.player.reset();
 }
@@ -203,7 +214,7 @@ function mainLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#4facfe"; ctx.fillRect(0, 0, canvas.width, canvas.height);
     state.player.update();
-    state.entities.forEach((e, i) => { e.update(); e.draw(); if (e.life < 0) state.entities.splice(i, 1); });
+    state.entities.forEach((e, i) => { e.update(); e.draw(); if (e.dead || (e instanceof Bullet && e.life < 0)) state.entities.splice(i, 1); });
     state.tiles.forEach(t => { ctx.fillStyle = t.type === 'block' ? '#388e3c' : '#ffd700'; ctx.fillRect(t.x - state.cameraX, t.y, t.w, t.h); });
     state.player.draw();
     document.getElementById('hp-display').innerText = "❤".repeat(state.player.hp);
@@ -216,20 +227,15 @@ const setupBtn = (id, key) => {
     const start = (e) => { e.preventDefault(); state.inputs[key] = true; };
     const end = (e) => { 
         e.preventDefault(); 
-        // Aボタン（上側）でかめはめ波
-        if (key === 'a' && state.inputs.aHold < 15) {
-            state.entities.push(new Bullet(state.player.x+10, state.player.y+5, state.player.facing*6));
-        }
-        state.inputs[key] = false; state.inputs.bHold = 0; state.inputs.aHold = 0;
+        // Bボタンの短押しで攻撃
+        if (key === 'b' && state.inputs.bHold < 15) state.entities.push(new Bullet(state.player.x+10, state.player.y+5, state.player.facing*6));
+        state.inputs[key] = false; state.inputs.bHold = 0; 
     };
     el.addEventListener('touchstart', start); el.addEventListener('touchend', end);
     el.addEventListener('mousedown', start); el.addEventListener('mouseup', end);
 };
 ['up','down','left','right','a','b'].forEach(k => setupBtn('b-'+k, k));
-setInterval(() => { 
-    if (state.inputs.b) state.inputs.bHold++; 
-    if (state.inputs.a) state.inputs.aHold++;
-}, 20);
+setInterval(() => { if (state.inputs.b) state.inputs.bHold++; }, 20);
 
 state.player = new Player();
 generateLevel();
