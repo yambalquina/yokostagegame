@@ -3,105 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pixel Hero Saga: Small UI Edition</title>
+    <title>Pixel Hero Saga - Grand Update</title>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; background: #000; font-family: 'Courier New', monospace; overflow: hidden; touch-action: none; user-select: none; width: 100vw; height: 100vh; }
+        body { margin: 0; background: #000; font-family: 'Courier New', monospace; overflow: hidden; touch-action: none; user-select: none; }
         
-        #game-wrapper { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; background: #111; }
-        
-        canvas { 
-            background: #4facfe; 
-            width: 100vw; 
-            height: auto; 
-            max-height: 70vh; 
-            image-rendering: pixelated; 
-            display: block; 
-            margin: 0 auto; 
-        }
+        #game-container { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; background: #111; }
+        canvas { background: #4facfe; width: 100%; height: auto; max-height: 75vh; image-rendering: pixelated; display: block; margin: 0 auto; border-bottom: 4px solid #333; }
 
-        /* --- コントローラー層 --- */
-        .controls { 
-            position: fixed;
-            top: 0; left: 0;
-            width: 100vw; height: 100vh;
-            pointer-events: none;
-            z-index: 100;
-        }
-
-        .d-pad, .btns { 
-            position: absolute;
-            pointer-events: auto;
-        }
-
-        /* --- 横画面（Landscape）配置 --- */
         @media (orientation: landscape) {
             canvas { max-height: 100vh; width: auto; aspect-ratio: 16 / 9; }
-            .d-pad { 
-                bottom: calc(10% + env(safe-area-inset-bottom));
-                left: calc(5% + env(safe-area-inset-left));
-            }
-            .btns { 
-                bottom: calc(10% + env(safe-area-inset-bottom));
-                right: calc(5% + env(safe-area-inset-right));
-                width: 80px; height: 70px; /* 半分に縮小 */
-            }
+            .controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; background: transparent !important; pointer-events: none; }
+            .d-pad, .btns { pointer-events: auto; }
+            .d-pad { position: absolute; bottom: 15%; left: 8%; }
+            .btns { position: absolute; bottom: 15%; right: 8%; }
         }
 
-        /* --- 縦画面（Portrait）配置：ボタン位置を調整 --- */
-        @media (orientation: portrait) {
-            .d-pad { bottom: 130px; left: 20px; }
-            .btns { bottom: 130px; right: 20px; width: 80px; height: 70px; } /* 半分に縮小 */
-        }
-
-        /* 十字キー：各ボタン30px */
-        .d-pad { display: grid; grid-template-columns: repeat(3, 30px); grid-template-rows: repeat(3, 30px); gap: 3px; }
+        .controls { flex-grow: 1; background: #222; display: flex; justify-content: space-between; align-items: center; padding: 20px; z-index: 10; }
+        
+        /* 十字キー：各ボタン50px */
+        .d-pad { display: grid; grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(3, 50px); gap: 8px; }
+        
+        /* FC配置: B(左下), A(右上) */
+        .btns { position: relative; width: 150px; height: 120px; }
         .btn { 
-            background: #444; border: 2px solid #111; color: white; border-radius: 6px; 
+            background: #444; border: 4px solid #111; color: white; border-radius: 12px; 
             display: flex; align-items: center; justify-content: center; font-weight: bold; 
-            box-shadow: 0 3px #000;
+            box-shadow: 0 5px #000; transition: 0.1s;
         }
-        .btn:active { transform: translateY(2px); box-shadow: none; background: #666; }
-        .btn-dir { width: 30px; height: 30px; font-size: 12px; background: #333; }
+        .btn:active { transform: translateY(4px); box-shadow: none; background: #666; }
+        
+        /* A/Bボタン：60px */
+        #b-b { position: absolute; left: 0; bottom: 0; width: 60px; height: 60px; border-radius: 50%; background: #e91e63; font-size: 24px; }
+        #b-a { position: absolute; right: 0; top: 0; width: 60px; height: 60px; border-radius: 50%; background: #4caf50; font-size: 24px; }
+        .btn-dir { width: 50px; height: 50px; font-size: 20px; background: #333; }
 
-        /* --- Aボタン（左上：ジャンプ） 40px --- */
-        #b-a { 
-            position: absolute; 
-            left: 0; top: 0; 
-            width: 40px; height: 40px; 
-            border-radius: 50%; 
-            background: #4caf50; 
-            font-size: 14px; 
-        }
-
-        /* --- Bボタン（右下：攻撃＆ダッシュ） 40px --- */
-        #b-b { 
-            position: absolute; 
-            right: 0; bottom: 0; 
-            width: 40px; height: 40px; 
-            border-radius: 50%; 
-            background: #e91e63; 
-            font-size: 14px; 
-        }
-
-        #ui-layer { 
-            position: fixed; 
-            top: calc(10px + env(safe-area-inset-top)); 
-            left: calc(15px + env(safe-area-inset-left)); 
-            color: white; text-shadow: 2px 2px #000; pointer-events: none; z-index: 110; 
-        }
+        #ui-layer { position: absolute; top: 15px; left: 15px; color: white; text-shadow: 2px 2px #000; pointer-events: none; font-size: 14px; }
         #hp-display { font-size: 20px; color: #ff5252; }
+        .boss-ui { position: absolute; top: 15px; right: 15px; width: 150px; display: none; text-align: right; color: white; }
+        .hp-bar { width: 100%; height: 10px; border: 2px solid #fff; background: #000; margin-top: 4px; }
+        .hp-fill { width: 100%; height: 100%; background: #f00; }
     </style>
 </head>
 <body>
 
-<div id="game-wrapper">
+<div id="game-container">
     <canvas id="gameCanvas"></canvas>
-    
     <div id="ui-layer">
         <div id="hp-display">❤❤❤</div>
-        <div id="stage-display" style="font-size: 12px;">STAGE 1-1</div>
-        <div id="coin-display" style="font-size: 12px;">COINS: 00</div>
+        <div id="info-text">STAGE 1-1 | 00</div>
+    </div>
+    <div class="boss-ui" id="boss-ui">
+        DRAGON LORD
+        <div class="hp-bar"><div id="boss-hp-fill" class="hp-fill"></div></div>
     </div>
 
     <div class="controls">
@@ -111,116 +65,230 @@
             <div></div><div class="btn btn-dir" id="b-down">▼</div><div></div>
         </div>
         <div class="btns">
-            <div class="btn" id="b-a">A</div>
             <div class="btn" id="b-b">B</div>
+            <div class="btn" id="b-a">A</div>
         </div>
     </div>
 </div>
 
 <script>
-// --- ゲームロジック ---
+/** @type {HTMLCanvasElement} */
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 canvas.width = 480; canvas.height = 270;
 
 const TILE_SIZE = 16;
-const GRAVITY = 0.22;
-const JUMP_FORCE = -7.5;
-const WORLD_WIDTH = 150;
+const GRAVITY = 0.28;
 
 let state = {
-    stage: 1, section: 1, cameraX: 0, coins: 0,
-    player: null, entities: [], tiles: [],
-    inputs: { left: false, right: false, up: false, down: false, a: false, b: false, bHold: 0 }
+    stage: 1, section: 1, cameraX: 0, shake: 0, hitStop: 0, coins: 0,
+    player: null, entities: [], particles: [], tiles: [],
+    inputs: { left: false, right: false, up: false, down: false, a: false, b: false, bTime: 0 },
+    boss: null
 };
+
+class Particle {
+    constructor(x, y, color, vx, vy, life) {
+        Object.assign(this, {x, y, color, vx, vy, life, maxLife: life});
+    }
+    update() { this.x += this.vx; this.y += this.vy; this.life--; }
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = this.life / this.maxLife;
+        ctx.fillRect(this.x - state.cameraX, this.y, 2, 2);
+        ctx.globalAlpha = 1;
+    }
+}
 
 class Player {
     constructor() { this.w = 14; this.h = 20; this.hp = 3; this.reset(); }
-    reset() { this.x = 40; this.y = 100; this.vx = 0; this.vy = 0; this.facing = 1; this.onGround = false; this.isCrouching = false; this.hipDrop = false; this.invincible = 0; }
+    reset() { this.x = 40; this.y = 100; this.vx = 0; this.vy = 0; this.facing = 1; this.onGround = false; this.isCrouching = false; this.hipDrop = false; this.invincible = 0; this.anim = 0; }
     update() {
         if (this.invincible > 0) this.invincible--;
-        let speed = state.inputs.b ? 3.8 : 2.5;
-        if (state.inputs.left) { this.vx = -speed; this.facing = -1; } else if (state.inputs.right) { this.vx = speed; this.facing = 1; } else { this.vx *= 0.85; }
-        if (state.inputs.a && this.onGround) { this.vy = JUMP_FORCE; this.onGround = false; }
+        
+        let isDashing = state.inputs.b && (state.inputs.left || state.inputs.right);
+        let moveSpeed = isDashing ? 3.2 : 2.0;
+        
+        if (state.inputs.left) { this.vx = -moveSpeed; this.facing = -1; }
+        else if (state.inputs.right) { this.vx = speed; this.facing = 1; }
+        else { this.vx *= 0.8; }
+
+        if (state.inputs.a && this.onGround) { this.vy = -6; this.onGround = false; }
         
         this.isCrouching = state.inputs.down && this.onGround;
-        if (state.inputs.down && !this.onGround) { this.hipDrop = true; this.vy = 8; }
+        if (state.inputs.down && !this.onGround) { this.hipDrop = true; this.vy = 7; }
         if (this.onGround) this.hipDrop = false;
-        this.vy += GRAVITY; this.x += this.vx; this.collide('x'); this.y += this.vy; this.collide('y');
-        if (this.y > canvas.height + 50) this.damage(true);
+
+        this.vy += GRAVITY;
+        this.x += this.vx; this.checkCollision('x');
+        this.y += this.vy; this.checkCollision('y');
+
         state.cameraX += (this.x - canvas.width/2 - state.cameraX) * 0.12;
         state.cameraX = Math.max(0, state.cameraX);
-        if (this.x > (WORLD_WIDTH * TILE_SIZE) - 20) nextSection();
+
+        if (this.x > state.mapW * TILE_SIZE - 20) nextSection();
+        if (this.y > canvas.height + 50) this.takeDamage(true);
     }
-    collide(axis) {
+    checkCollision(axis) {
         state.tiles.forEach(t => {
             if (this.x < t.x + t.w && this.x + this.w > t.x && this.y < t.y + t.h && this.y + this.h > t.y) {
                 if (t.type === 'coin') { state.coins++; t.removed = true; return; }
                 if (axis === 'x') { this.x -= this.vx; this.vx = 0; }
-                else { if (this.vy > 0) { this.y = t.y - this.h; this.vy = 0; this.onGround = true; } else { this.y = t.y + t.h; this.vy = 0; } }
+                else {
+                    if (this.vy > 0) { this.y = t.y - this.h; this.vy = 0; this.onGround = true; }
+                    else { this.y = t.y + t.h; this.vy = 0; }
+                }
             }
         });
         state.tiles = state.tiles.filter(t => !t.removed);
     }
-    damage(instant = false) {
+    takeDamage(instant = false) {
         if (this.invincible > 0 && !instant) return;
-        this.hp--; this.invincible = 60; this.vy = -4;
+        this.hp--; state.shake = 15; this.invincible = 60; this.vy = -4; this.vx = -this.facing * 4;
         if (this.hp <= 0 || instant) { alert("RETRY?"); location.reload(); }
     }
     draw() {
-        ctx.save(); if (this.invincible % 4 > 2) ctx.globalAlpha = 0.4;
+        this.anim += Math.abs(this.vx) * 0.15;
+        let bounce = (this.onGround && !this.isCrouching) ? Math.abs(Math.sin(this.anim))*2 : 0;
+        ctx.save();
+        if (this.invincible % 4 > 2) ctx.globalAlpha = 0.3;
         ctx.translate(this.x - state.cameraX, this.y);
-        ctx.fillStyle = "#ffdbac"; ctx.fillRect(1, this.isCrouching ? 8 : 0, 12, 10);
-        ctx.fillStyle = "#f44"; ctx.fillRect(1, this.isCrouching ? 14 : 10, 12, 10);
-        ctx.fillStyle = "#000"; ctx.fillRect(this.facing === 1 ? 9 : 2, this.isCrouching ? 12 : 4, 2, 2);
+        
+        // プレイヤーキャラ強化（マリオ、カービィ風の描き込み）
+        let crouchY = this.isCrouching ? 8 : bounce;
+        ctx.fillStyle = "#ffdbac"; ctx.fillRect(1, crouchY, 12, 10); // 頭
+        ctx.fillStyle = "#f44"; ctx.fillRect(1, 10, 12, 10); // 服
+        ctx.fillStyle = "#000"; ctx.fillRect(this.facing === 1 ? 9 : 2, 4 + crouchY, 2, 2); // 目
         ctx.restore();
     }
 }
 
 class Enemy {
-    constructor(type, x, y) { Object.assign(this, {type, x, y, w: 16, h: 16, vx: -1.2, dead: false}); }
+    constructor(type, x, y) {
+        Object.assign(this, {type, x, y, w: 16, h: 16, vx: -1.2, hp: type==='boss'?30:(type==='dragon'?5:1), t: 0, dead: false});
+        if (type === 'boss') { this.w = 48; this.h = 48; this.vx = 0; }
+    }
     update() {
-        this.x += this.vx;
-        state.tiles.forEach(t => { if (this.x < t.x+t.w && this.x+this.w > t.x && this.y < t.y+t.h && this.y+this.h > t.y) this.vx *= -1; });
+        this.t++;
+        if (this.type === 'mouse') { // トゲネズミ（踏むとダメージ）
+            this.x += this.vx;
+            state.tiles.forEach(t => { if (this.x < t.x+t.w && this.x+this.w > t.x && this.y < t.y+t.h && this.y+this.h > t.y) this.vx *= -1; });
+        } else if (this.type === 'bat') { // 魔法コウモリ（サイン波浮遊、魔法弾）
+            this.x += this.vx; this.y += Math.sin(this.t * 0.08) * 1.2;
+            if (this.t % 180 === 0) spawnProjectile(this.x, this.y + 8, -2, "#0ff");
+        } else if (this.type === 'dragon' || this.type === 'boss') { // 中ボス龍、ラスボス巨大龍
+            this.y += Math.sin(this.t * 0.05) * 1.5;
+            if (this.t % 120 === 0) {
+                spawnProjectile(this.x, this.y + 20, -2.5, "#ff0"); // 火を吐く
+                if (this.type === 'boss' && this.t % 240 === 0) spawnProjectile(this.x + 20, this.y - 20, 0, "#888", 2, true); // 岩落とし
+            }
+        }
+
+        // プレイヤー攻撃判定
         let p = state.player;
         if (p.x < this.x + this.w && p.x + p.w > this.x && p.y < this.y + this.h && p.y + p.h > this.y) {
-            if (p.vy > 0 && p.y < this.y || p.hipDrop) { this.dead = true; p.vy = -6; } else { p.damage(); }
+            if (p.vy > 0 && p.y < this.y || p.hipDrop) { // 踏んだ or ヒップドロップ
+                if (this.type === 'mouse') { p.takeDamage(); } // トゲは踏むとダメージ
+                else { this.hp--; p.vy = -5; state.shake = 8; if (this.hp <= 0) this.dead = true; }
+            } else { p.takeDamage(); }
         }
     }
-    draw() { ctx.fillStyle = '#080'; ctx.fillRect(this.x-state.cameraX, this.y, this.w, this.h); }
+    draw() {
+        ctx.fillStyle = this.type === 'mouse' ? '#777' : (this.type === 'bat' ? '#505' : '#080');
+        if (this.type === 'boss') ctx.fillStyle = '#060';
+        ctx.fillRect(this.x - state.cameraX, this.y, this.w, this.h);
+        if (this.type === 'mouse') { // トゲ描画
+            ctx.fillStyle = "#fff";
+            ctx.beginPath(); ctx.moveTo(this.x-state.cameraX+8, this.y); ctx.lineTo(this.x-state.cameraX+4, this.y-4); ctx.lineTo(this.x-state.cameraX+12, this.y-4); ctx.fill();
+        }
+    }
 }
 
-class Bullet {
-    constructor(x, y, vx) { Object.assign(this, {x, y, vx, w:10, h:10, life:100}); }
+class Projectile {
+    constructor(x, y, vx, color, size=8, isRock=false) {
+        Object.assign(this, {x, y, vx, color, w:size, h:size, life:isRock?200:100, isRock, vy:isRock?2:0});
+    }
+    update() {
+        this.x += this.vx; this.y += this.vy; this.life--;
+        let p = state.player;
+        if (this.x < p.x+p.w && this.x+this.w > p.x && this.y < p.y+p.h && this.y+p.h > p.y) {
+            p.takeDamage(); this.dead = true;
+        }
+    }
+    draw() {
+        if (this.isRock) { ctx.fillStyle = this.color; ctx.fillRect(this.x-state.cameraX, this.y, this.w, this.h); }
+        else { ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x-state.cameraX+4, this.y+4, 4, 0, 7); ctx.fill(); }
+    }
+}
+
+class Beam {
+    constructor(x, y, f) { this.x = x; this.y = y; this.vx = f * 6; this.life = 80; this.w = 12; this.h = 12; }
     update() {
         this.x += this.vx; this.life--;
-        state.entities.forEach(e => { if (e instanceof Enemy && this.x < e.x+e.w && this.x+this.w > e.x && this.y < e.y+e.h && this.y+this.h > e.y) { e.dead = true; this.dead = true; } });
+        state.entities.forEach(e => {
+            if (e instanceof Enemy && this.x < e.x+e.w && this.x+this.w > e.x && this.y < e.y+e.h && this.y+this.h > e.y) {
+                e.hp--; this.dead = true; state.shake = 5;
+            }
+        });
     }
-    draw() { ctx.fillStyle = '#0ff'; ctx.beginPath(); ctx.arc(this.x-state.cameraX+5, this.y+5, 5, 0, 7); ctx.fill(); }
+    draw() { ctx.fillStyle = '#0ff'; ctx.beginPath(); ctx.arc(this.x-state.cameraX+6, this.y+6, 6, 0, 7); ctx.fill(); }
 }
 
-function generateLevel() {
-    state.tiles = []; state.entities = []; state.cameraX = 0;
-    for(let i=0; i<WORLD_WIDTH; i++) {
-        if (i > 15 && i % 14 === 0 && Math.random() > 0.4) continue;
-        state.tiles.push({x: i*TILE_SIZE, y: 220, w: TILE_SIZE, h: 50, type: 'block'});
-        if (i % 7 === 0) state.tiles.push({x: i*TILE_SIZE, y: 155, w: 32, h: 8, type: 'block'});
-        if (i > 20 && i % 18 === 0) state.entities.push(new Enemy('mouse', i*TILE_SIZE, 204));
+function spawnProjectile(x, y, vx, color, size=8, isRock=false) { state.entities.push(new Projectile(x, y, vx, color, size, isRock)); }
+
+function initLevel() {
+    state.tiles = []; state.entities = []; state.particles = []; state.cameraX = 0; state.mapW = 120;
+    // マリオ風パイプ、カービィ風の多重レイヤー背景の配置
+    for(let i=0; i<state.mapW; i++) {
+        state.tiles.push({x: i*TILE_SIZE, y: 240, w: TILE_SIZE, h: 30, type: 'block'});
+        if (i % 20 === 0 && i > 0) { // パイプ
+            for(let j=0; j<3; j++) state.tiles.push({x: i*TILE_SIZE, y: 240 - TILE_SIZE*(j+1), w: 32, h: TILE_SIZE, type: 'block'});
+        }
+        if (i > 10 && i % 15 === 0) { // 敵配置（トゲネズミ、魔法コウモリ、中ボス龍）
+            let et = state.stage < 2 ? 'mouse' : (state.stage < 4 ? 'bat' : 'dragon');
+            state.entities.push(new Enemy(et, i*TILE_SIZE, state.tiles.find(t=>t.x===i*TILE_SIZE&&t.y===240).y - 20));
+        }
+        if (i % 8 === 0) state.tiles.push({x: i*TILE_SIZE, y: 180, w: 32, h: 8, type: 'block'}); // 空中足場
+    }
+    if (state.stage === 5 && state.section === 5) { // ラスボス巨大龍
+        state.boss = new Enemy('boss', 600, 100); state.entities.push(state.boss);
+        document.getElementById('boss-ui').style.display = 'block';
     }
     state.player.reset();
 }
 
-function nextSection() { state.section++; if (state.section > 5) { state.section = 1; state.stage++; } if (state.stage > 5) { alert("ALL CLEAR!"); location.reload(); } generateLevel(); }
+function nextSection() {
+    state.section++; if (state.section > 5) { state.section = 1; state.stage++; }
+    if (state.stage > 5) { alert("CONGRATULATIONS!"); location.reload(); }
+    initLevel();
+}
 
 function mainLoop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#4facfe"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (state.hitStop > 0) { state.hitStop--; requestAnimationFrame(mainLoop); return; }
+    ctx.save();
+    if (state.shake > 0) { ctx.translate((Math.random()-0.5)*state.shake, (Math.random()-0.5)*state.shake); state.shake *= 0.9; }
+
+    // パララックス（背景連動）背景描画
+    ctx.fillStyle = "#5c94fc"; ctx.fillRect(0, 0, canvas.width, canvas.height); // 空
+    ctx.fillStyle = "#4facfe"; // 遠景（山）
+    for(let i=0; i<3; i++) ctx.fillRect((i*300) - (state.cameraX*0.3 % 300), 100, 150, 100);
+    ctx.fillStyle = "#3facfe"; // 近景（木）
+    for(let i=0; i<5; i++) ctx.fillRect((i*200) - (state.cameraX*0.6 % 200), 180, 50, 100);
+
     state.player.update();
-    state.entities.forEach((e, i) => { e.update(); e.draw(); if (e.dead || (e instanceof Bullet && e.life < 0)) state.entities.splice(i, 1); });
-    state.tiles.forEach(t => { ctx.fillStyle = t.type === 'block' ? '#388e3c' : '#ffd700'; ctx.fillRect(t.x - state.cameraX, t.y, t.w, t.h); });
+    state.tiles.forEach(t => { ctx.fillStyle = '#8bc34a'; ctx.fillRect(t.x-state.cameraX, t.y, t.w, t.h); });
+    state.entities.forEach((e, i) => {
+        e.update(); e.draw();
+        if (e.dead || (e instanceof Projectile && e.life < 0) || (e instanceof Beam && e.life < 0)) state.entities.splice(i, 1);
+        if (e === state.boss && e.dead) { alert("VICTORY!"); nextSection(); }
+    });
     state.player.draw();
+    ctx.restore();
+
     document.getElementById('hp-display').innerText = "❤".repeat(state.player.hp);
-    document.getElementById('stage-display').innerText = `STAGE ${state.stage}-${state.section}`;
+    document.getElementById('info-text').innerText = `STAGE ${state.stage}-${state.section} | ${String(state.coins).padStart(2, '0')}`;
+    if (state.boss) document.getElementById('boss-hp-fill').style.width = (state.boss.hp/30*100) + "%";
+
     requestAnimationFrame(mainLoop);
 }
 
@@ -229,18 +297,20 @@ const setupBtn = (id, key) => {
     const start = (e) => { e.preventDefault(); state.inputs[key] = true; };
     const end = (e) => { 
         e.preventDefault(); 
-        if (key === 'b' && state.inputs.bHold < 15) state.entities.push(new Bullet(state.player.x+10, state.player.y+5, state.player.facing*6));
-        state.inputs[key] = false; state.inputs.bHold = 0; 
+        if (key === 'b' && state.inputs.bTime < 15) { // かめはめ波（気弾）発射
+            state.entities.push(new Beam(state.player.x+10, state.player.y+5, state.player.facing));
+        }
+        state.inputs[key] = false; state.inputs.bTime = 0; 
     };
     el.addEventListener('touchstart', start); el.addEventListener('touchend', end);
     el.addEventListener('mousedown', start); el.addEventListener('mouseup', end);
 };
 ['up','down','left','right','a','b'].forEach(k => setupBtn('b-'+k, k));
-setInterval(() => { if (state.inputs.b) state.inputs.bHold++; }, 20);
+setInterval(() => { if (state.inputs.b) state.inputs.bTime++; }, 20);
 
 state.player = new Player();
-generateLevel();
-mainLoop();
+initLevel();
+update();
 </script>
 </body>
 </html>
