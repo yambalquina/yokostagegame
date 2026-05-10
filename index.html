@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pixel Hero Saga: Final Interface</title>
+    <title>Pixel Hero Saga: Small UI Edition</title>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: #000; font-family: 'Courier New', monospace; overflow: hidden; touch-action: none; user-select: none; width: 100vw; height: 100vh; }
@@ -44,43 +44,44 @@
             .btns { 
                 bottom: calc(10% + env(safe-area-inset-bottom));
                 right: calc(5% + env(safe-area-inset-right));
-                width: 160px; height: 140px;
+                width: 80px; height: 70px; /* 半分に縮小 */
             }
         }
 
-        /* --- 縦画面（Portrait）配置：ボタンをさらに上へ調整 --- */
+        /* --- 縦画面（Portrait）配置：ボタン位置を調整 --- */
         @media (orientation: portrait) {
-            .d-pad { bottom: 130px; left: 20px; } /* 80pxから130pxへ */
-            .btns { bottom: 130px; right: 20px; width: 160px; height: 140px; } /* 80pxから130pxへ */
+            .d-pad { bottom: 130px; left: 20px; }
+            .btns { bottom: 130px; right: 20px; width: 80px; height: 70px; } /* 半分に縮小 */
         }
 
-        .d-pad { display: grid; grid-template-columns: repeat(3, 60px); grid-template-rows: repeat(3, 60px); gap: 5px; }
+        /* 十字キー：各ボタン30px */
+        .d-pad { display: grid; grid-template-columns: repeat(3, 30px); grid-template-rows: repeat(3, 30px); gap: 3px; }
         .btn { 
-            background: #444; border: 4px solid #111; color: white; border-radius: 12px; 
+            background: #444; border: 2px solid #111; color: white; border-radius: 6px; 
             display: flex; align-items: center; justify-content: center; font-weight: bold; 
-            box-shadow: 0 5px #000;
+            box-shadow: 0 3px #000;
         }
-        .btn:active { transform: translateY(4px); box-shadow: none; background: #666; }
-        .btn-dir { width: 60px; height: 60px; font-size: 24px; background: #333; }
+        .btn:active { transform: translateY(2px); box-shadow: none; background: #666; }
+        .btn-dir { width: 30px; height: 30px; font-size: 12px; background: #333; }
 
-        /* --- Aボタン（左上：ジャンプ） --- */
+        /* --- Aボタン（左上：ジャンプ） 40px --- */
         #b-a { 
             position: absolute; 
             left: 0; top: 0; 
-            width: 80px; height: 80px; 
+            width: 40px; height: 40px; 
             border-radius: 50%; 
             background: #4caf50; 
-            font-size: 28px; 
+            font-size: 14px; 
         }
 
-        /* --- Bボタン（右下：攻撃＆ダッシュ） --- */
+        /* --- Bボタン（右下：攻撃＆ダッシュ） 40px --- */
         #b-b { 
             position: absolute; 
             right: 0; bottom: 0; 
-            width: 80px; height: 80px; 
+            width: 40px; height: 40px; 
             border-radius: 50%; 
             background: #e91e63; 
-            font-size: 28px; 
+            font-size: 14px; 
         }
 
         #ui-layer { 
@@ -89,7 +90,7 @@
             left: calc(15px + env(safe-area-inset-left)); 
             color: white; text-shadow: 2px 2px #000; pointer-events: none; z-index: 110; 
         }
-        #hp-display { font-size: 24px; color: #ff5252; }
+        #hp-display { font-size: 20px; color: #ff5252; }
     </style>
 </head>
 <body>
@@ -99,8 +100,8 @@
     
     <div id="ui-layer">
         <div id="hp-display">❤❤❤</div>
-        <div id="stage-display" style="font-size: 14px;">STAGE 1-1</div>
-        <div id="coin-display" style="font-size: 14px;">COINS: 00</div>
+        <div id="stage-display" style="font-size: 12px;">STAGE 1-1</div>
+        <div id="coin-display" style="font-size: 12px;">COINS: 00</div>
     </div>
 
     <div class="controls">
@@ -110,11 +111,14 @@
             <div></div><div class="btn btn-dir" id="b-down">▼</div><div></div>
         </div>
         <div class="btns">
-            <div class="btn" id="b-a">A</div> <div class="btn" id="b-b">B</div> </div>
+            <div class="btn" id="b-a">A</div>
+            <div class="btn" id="b-b">B</div>
+        </div>
     </div>
 </div>
 
 <script>
+// --- ゲームロジック ---
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 canvas.width = 480; canvas.height = 270;
