@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Pixel Adventure - 5 Stages</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #333; font-family: sans-serif; }
+        canvas { display: block; background: #5c94fc; margin: 20px auto; border: 4px solid #000; image-rendering: pixelated; }
+        .ui { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); color: white; text-shadow: 2px 2px #000; font-size: 24px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="ui">
+        <div id="stage-info">Stage 1-1</div>
+        <div id="status">A/D: Move | Space: Jump</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const stageInfo = document.getElementById('stage-info');
+
+canvas.width = 800;
+canvas.height = 400;
+
+// ゲーム設定
+const GRAVITY = 0.5;
+const PLAYER_SPEED = 5;
+const JUMP_FORCE = -12;
+const TILE_SIZE = 40;
+
+let currentStage = 1;
+let currentSection = 1;
+
+// 入力状態
+const keys = {};
+window.addEventListener('keydown', e => keys[e.code] = true);
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+// エンティティ定義
+class Player {
+    constructor() {
+        this.reset();
+    }
+    reset() {
+        this.x = 50;
+        this.y = 200;
+        this.w = 32;
+        this.h = 32;
+        this.vx = 0;
+        this.vy = 0;
+        this.onGround = false;
+    }
+    update(platforms, enemies) {
+        if (keys['KeyA'] || keys['ArrowLeft']) this.vx = -PLAYER_SPEED;
+        else if (keys['KeyD'] || keys['ArrowRight']) this.vx = PLAYER_SPEED;
+        else this.vx = 0;
+
+        if ((keys['Space'] || keys['ArrowUp']) && this.onGround) {
+            this.vy = JUMP_FORCE;
+            this.onGround = false;
+        }
+
+        this.vy += GRAVITY;
+        this.x += this.vx;
+        this.checkCollision(platforms, 'x');
+        this.y += this.vy;
+        this.checkCollision(platforms, 'y');
+        
+        // 敵との判定
+        enemies.forEach((enemy, index) => {
+            if (this.x < enemy.x + enemy.w && this.x + this.w > enemy.x &&
+                this.y < enemy.y + enemy.h && this.y + this.h > enemy.y) {
+                if (this.vy > 0 && this.y + this.h < enemy.y + 20) {
+                    // 踏んだ！
+                    enemies.splice(index, 1);
+                    this.vy = -8;
+                } else {
+                    // ダメージ（リスタート）
+                    this.reset();
+                }
+            }
+        });
+
+        // 画面外（落下）チェック
+        if (this.y > canvas.height) this.reset();
+        
+        // セクションクリア
+        if (this.x > canvas.width) {
+            nextSection();
+        }
+    }
+
+    checkCollision(platforms, axis) {
+        platforms.forEach(p => {
+            if (this.x < p.x + p.w && this.x + this.w > p.x &&
+                this.y < p.y + p.h && this.y + this.h > p.y) {
+                if (axis === 'x') {
+                    if (this.vx > 0) this.x = p.x - this.w;
+                    if (this.vx < 0) this.x = p.x + p.w;
+                } else {
+                    if (this.vy > 0) {
+                        this.y = p.y - this.h;
+                        this.vy = 0;
+                        this.onGround = true;
+                    } else if (this.vy < 0) {
+                        this.y = p.y + p.h;
+                        this.vy = 0;
+                    }
+                }
+            }
+        });
+    }
+
+    draw() {
+        // キャラクター（青いドット絵風）
+        ctx.fillStyle = '#00f';
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+        ctx.fillStyle = '#fff'; // 目
+        ctx.fillRect(this.x + 20, this.y + 5, 5, 5);
+    }
+}
+
+class Enemy {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.w = 32;
+        this.h = 32;
+        this.vx = -2;
+    }
+    update(platforms) {
+        this.x += this.vx;
+        // 壁に当たったら反転
+        platforms.forEach(p => {
+            if (this.x < p.x + p.w && this.x + this.w > p.x &&
+                this.y < p.y + p.h && this.y + this.h > p.y) {
+                this.vx *= -1;
+            }
+        });
+        if (this.x < 0 || this.x > canvas.width - this.w) this.vx *= -1;
+    }
+    draw() {
+        ctx.fillStyle = '#f00'; // 敵は赤
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(this.x + 5, this.y + 5, 5, 5);
+        ctx.fillRect(this.x + 22, this.y + 5, 5, 5);
+    }
+}
+
+// ステージ生成
+let platforms = [];
+let enemies = [];
+const player = new Player();
+
+function generateLevel(stage, section) {
+    platforms = [];
+    enemies = [];
+    player.x = 50;
+    
+    // 地面（全セクション共通のベース）
+    platforms.push({x: 0, y: 360, w: 800, h: 40});
+
+    // ステージごとのデザイン（簡易的なアルゴリズム生成）
+    for(let i = 0; i < 5; i++) {
+        platforms.push({
+            x: 150 + i * 150, 
+            y: 280 - (i % 2) * 60, 
+            w: 80, 
+            h: 20
+        });
+        
+        if (i > 0) {
+            enemies.push(new Enemy(200 + i * 140, 328));
+        }
+    }
+    
+    // ステージが進むほど足場を難しくする例
+    if (stage > 2) {
+        platforms.push({x: 400, y: 150, w: 100, h: 20});
+    }
+
+    stageInfo.innerText = `Stage ${stage}-${section}`;
+}
+
+function nextSection() {
+    currentSection++;
+    if (currentSection > 5) {
+        currentSection = 1;
+        currentStage++;
+    }
+    if (currentStage > 5) {
+        alert("全5ステージクリア！おめでとう！");
+        currentStage = 1;
+        currentSection = 1;
+    }
+    generateLevel(currentStage, currentSection);
+}
+
+function update() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    player.update(platforms, enemies);
+    enemies.forEach(e => e.update(platforms));
+
+    // 描画
+    ctx.fillStyle = '#8bc34a'; // 草地の色
+    platforms.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
+    enemies.forEach(e => e.draw());
+    player.draw();
+
+    requestAnimationFrame(update);
+}
+
+// 最初のレベル開始
+generateLevel(currentStage, currentSection);
+update();
+</script>
+</body>
+</html>
