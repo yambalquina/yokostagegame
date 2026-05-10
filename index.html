@@ -3,29 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pixel Hero Saga - Power Fix</title>
+    <title>Pixel Hero Saga - Pixel Art Revival</title>
     <style>
+        /* 基本設定 */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: #000; font-family: 'Courier New', monospace; overflow: hidden; touch-action: none; user-select: none; width: 100vw; height: 100vh; }
+        
         #game-wrapper { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; background: #111; }
-        canvas { background: #4facfe; width: 100vw; height: auto; max-height: 70vh; image-rendering: pixelated; display: block; margin: 0 auto; }
+        canvas { background: #5c94fc; width: 100vw; height: auto; max-height: 70vh; image-rendering: pixelated; display: block; margin: 0 auto; }
+
+        /* コントローラー層 (絶対固定・ SafeArea対応) */
         .controls { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 100; }
         .d-pad, .btns { position: absolute; pointer-events: auto; }
+
+        /* 横画面配置（Landscape） */
         @media (orientation: landscape) {
             canvas { max-height: 100vh; width: auto; aspect-ratio: 16 / 9; }
             .d-pad { bottom: calc(10% + env(safe-area-inset-bottom)); left: calc(8% + env(safe-area-inset-left)); }
             .btns { bottom: calc(10% + env(safe-area-inset-bottom)); right: calc(8% + env(safe-area-inset-right)); width: 130px; height: 130px; }
         }
+
+        /* 縦画面配置（Portrait）：底上げ130px */
         @media (orientation: portrait) {
             .d-pad { bottom: 130px; left: 15px; }
             .btns { bottom: 130px; right: 15px; width: 130px; height: 130px; }
         }
+
+        /* 十字キー設定：各50px */
         .d-pad { display: grid; grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(3, 50px); gap: 5px; }
         .btn { background: #444; border: 3px solid #111; color: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 4px #000; }
         .btn:active { transform: translateY(3px); box-shadow: none; background: #666; }
         .btn-dir { width: 50px; height: 50px; font-size: 20px; background: #333; }
-        #b-a { position: absolute; left: 0; top: 0; width: 60px; height: 60px; border-radius: 50%; background: #4caf50; font-size: 24px; }
-        #b-b { position: absolute; right: 0; bottom: 0; width: 60px; height: 60px; border-radius: 50%; background: #e91e63; font-size: 24px; }
+
+        /* ABボタン設定：各60px */
+        /* A: 左上(Jump) / B: 右下(Attack/Dash) */
+        #b-a { position: absolute; left: 0; top: 0; width: 60px; height: 60px; border-radius: 50%; background: #4caf50; font-size: 24px; z-index: 101; }
+        #b-b { position: absolute; right: 0; bottom: 0; width: 60px; height: 60px; border-radius: 50%; background: #e91e63; font-size: 24px; z-index: 101; }
+
+        /* UIテキスト */
         #ui-layer { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: calc(15px + env(safe-area-inset-left)); color: white; text-shadow: 2px 2px #000; pointer-events: none; z-index: 110; }
         #hp-display { font-size: 24px; color: #ff5252; }
         .boss-bar { position: fixed; top: 20px; right: 20px; width: 150px; height: 15px; border: 2px solid #fff; background: #000; display: none; }
@@ -36,12 +51,17 @@
 
 <div id="game-wrapper">
     <canvas id="gameCanvas"></canvas>
+    
     <div id="ui-layer">
         <div id="hp-display">❤❤❤</div>
         <div id="stage-display" style="font-size: 14px;">STAGE 1-1</div>
         <div id="coin-display" style="font-size: 14px;">COINS: 00</div>
     </div>
-    <div class="boss-bar" id="boss-ui"><div id="boss-hp-inner"></div></div>
+    
+    <div class="boss-bar" id="boss-ui">
+        <div id="boss-hp-inner"></div>
+    </div>
+
     <div class="controls">
         <div class="d-pad">
             <div></div><div class="btn btn-dir" id="b-up">▲</div><div></div>
@@ -49,13 +69,12 @@
             <div></div><div class="btn btn-dir" id="b-down">▼</div><div></div>
         </div>
         <div class="btns">
-            <div class="btn" id="b-a">A</div>
-            <div class="btn" id="b-b">B</div>
-        </div>
+            <div class="btn" id="b-a">A</div> <div class="btn" id="b-b">B</div> </div>
     </div>
 </div>
 
 <script>
+/** @type {HTMLCanvasElement} */
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 canvas.width = 480; canvas.height = 270;
@@ -63,37 +82,169 @@ canvas.width = 480; canvas.height = 270;
 const TILE_SIZE = 16;
 const GRAVITY = 0.22;
 const JUMP_FORCE = -7.5;
-const WORLD_END = 2200;
+const WORLD_END = 3000; // ステージの長さ
 
 let state = {
     stage: 1, section: 1, cameraX: 0, coins: 0,
-    player: null, entities: [], tiles: [],
+    player: null, entities: [], particles: [], tiles: [],
     inputs: { left: false, right: false, up: false, down: false, a: false, b: false, bHold: 0 },
     boss: null, shake: 0
 };
 
+// --- ドット絵風描画用ヘルパー関数群 ---
+function drawDot(ctx, x, y, size, color) { ctx.fillStyle = color; ctx.fillRect(x, y, size, size); }
+
+function drawPixelArtPlayer(ctx, x, y, facing, isCrouching, onGround, anim) {
+    const ds = 1; // ドットのスケール
+    ctx.save();
+    ctx.translate(x, y);
+    if (facing === -1) ctx.translate(16, 0), ctx.scale(-1, 1); // 左向き
+    
+    let walkY = (onGround && !isCrouching) ? Math.abs(Math.sin(anim)) * 2 : 0;
+    ctx.translate(0, -walkY);
+
+    if (isCrouching) {
+        // しゃがみマリオ風
+        ctx.fillStyle = "#ffdbac"; ctx.fillRect(4, 8, 8, 8); // 顔
+        ctx.fillStyle = "#8b4513"; ctx.fillRect(4, 12, 8, 2); // ヒゲ
+        ctx.fillStyle = "#f44"; ctx.fillRect(2, 16, 12, 8); // 服
+        ctx.fillStyle = "#f00"; ctx.fillRect(4, 6, 8, 2); // 帽子
+    } else {
+        // 帽子（赤）
+        ctx.fillStyle = "#f00"; ctx.fillRect(2, 0, 10, 4); // 帽子上
+        ctx.fillRect(10, 2, 3, 2); // つば
+        
+        // 髪・ヒゲ（茶）
+        ctx.fillStyle = "#8b4513"; ctx.fillRect(2, 2, 2, 8); // 髪
+        ctx.fillRect(4, 6, 8, 2); // ヒゲ
+        
+        // 顔（肌色）
+        ctx.fillStyle = "#ffdbac"; ctx.fillRect(4, 2, 8, 10); // 顔主体
+        ctx.fillStyle = "#fff"; ctx.fillRect(9, 3, 2, 3); // 目（白）
+        ctx.fillStyle = "#000"; ctx.fillRect(10, 4, 1, 1); // 目（黒）
+
+        // オーバーオール（青）と服（赤）
+        ctx.fillStyle = "#f00"; ctx.fillRect(2, 12, 12, 12); // 服主体
+        ctx.fillStyle = "#00f"; ctx.fillRect(3, 12, 3, 9); // サスペンダー左
+        ctx.fillRect(10, 12, 3, 9); // サスペンダー右
+        ctx.fillRect(3, 18, 10, 3); // パンツ部分
+        ctx.fillStyle = "#ffd700"; ctx.fillRect(3, 16, 2, 2); // ボタン左
+        ctx.fillRect(11, 16, 2, 2); // ボタン右
+
+        // 靴（茶）
+        ctx.fillStyle = "#8b4513"; ctx.fillRect(1, 21, 6, 3); // 靴左
+        ctx.fillRect(9, 21, 6, 3); // 靴右
+    }
+    ctx.restore();
+}
+
+function drawPixelArtEnemyMouse(ctx, x, y, facing, t) {
+    const ds = 1; ctx.save(); ctx.translate(x, y);
+    if (facing === 1) ctx.translate(16, 0), ctx.scale(-1, 1); // 右向き
+    
+    // トゲゾー（image.pngのトゲのある敵）風
+    ctx.fillStyle = "#ff8c00"; ctx.fillRect(0, 4, 16, 12); // シェル主体
+    ctx.fillStyle = "#fff"; // トゲ
+    for(let i=0; i<3; i++) {
+        ctx.beginPath(); ctx.moveTo(2 + i*5, 4); ctx.lineTo(4 + i*5, 0); ctx.lineTo(6 + i*5, 4); ctx.fill();
+    }
+    ctx.fillStyle = "#ffdbac"; ctx.fillRect(12, 8, 4, 8); // 顔
+    ctx.fillStyle = "#000"; ctx.fillRect(14, 10, 2, 2); // 目
+    ctx.fillStyle = "#ffdbac"; ctx.fillRect(1, 12, 4, 4); // 足左
+    ctx.fillRect(9, 12, 4, 4); // 足右
+    ctx.restore();
+}
+
+function drawPixelArtEnemyBat(ctx, x, y, t) {
+    const ds = 1; ctx.save(); ctx.translate(x, y);
+    let wingY = Math.sin(t * 0.2) * 3;
+    
+    // カービィに出てくる「ワドルドゥ」や「カービィ」のような敵のデザイン（目）を意識
+    ctx.fillStyle = "#606"; ctx.beginPath(); ctx.arc(8, 8+wingY, 8, 0, 7); ctx.fill(); // 体（円）
+    
+    // 巨大な目（カービィの画像の敵のような）
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(8, 8+wingY, 5, 0, 7); ctx.fill(); // 目白
+    ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(8, 8+wingY, 3, 0, 7); ctx.fill(); // 目黒
+    ctx.fillStyle = "#fff"; ctx.fillRect(8, 6+wingY, 2, 2); // ハイライト
+
+    // 羽（黒）
+    ctx.fillStyle = "#000";
+    ctx.beginPath(); ctx.moveTo(0, 8+wingY); ctx.lineTo(-8, 0+wingY); ctx.lineTo(-4, 12+wingY); ctx.fill(); // 左羽
+    ctx.beginPath(); ctx.moveTo(16, 8+wingY); ctx.lineTo(24, 0+wingY); ctx.lineTo(20, 12+wingY); ctx.fill(); // 右羽
+    ctx.restore();
+}
+
+function drawPixelArtBoss(ctx, x, y, hp, t) {
+    const ds = 1; ctx.save(); ctx.translate(x, y);
+    let wobble = Math.sin(t * 0.05) * 5;
+    
+    // クッパのような、カービィのボスのような巨大龍（image.png-88b845f4-9340-4a06-b9e1-29959afcb970の龍）
+    ctx.fillStyle = "#0a0"; ctx.fillRect(8, 16, 48, 48); // 体主体
+    
+    // 背中のシェル（緑・トゲ）
+    ctx.fillStyle = "#080"; ctx.fillRect(0, 16, 16, 48); // シェル
+    ctx.fillStyle = "#fff"; // トゲ
+    for(let i=0; i<4; i++) {
+        for(let j=0; j<3; j++) ctx.fillRect(2+i*4, 20+j*16+wobble, 3, 3);
+    }
+    
+    // 顔（image.pngの龍）
+    ctx.fillStyle = "#ffd700"; ctx.fillRect(40, 0, 24, 24); // 頭
+    ctx.fillStyle = "#ff8c00"; ctx.fillRect(40, 20, 32, 12); // 口
+    ctx.fillStyle = "#fff"; ctx.fillRect(50, 4, 6, 6); ctx.fillRect(52, 6, 2, 2); ctx.fillStyle = "#000"; ctx.fillRect(52, 6, 2, 2); // 目
+    
+    ctx.fillStyle = "#f44"; if (t % 120 > 100) ctx.fillStyle = "#ff0"; // 炎を吐く前兆
+    ctx.fillRect(68, 20, 8, 12); // 口端（炎発射口）
+    ctx.restore();
+}
+
+function drawPixelArtBlock(ctx, x, y) {
+    ctx.fillStyle = "#8b4513"; ctx.fillRect(x, y, 16, 16); // レンガ主体
+    ctx.fillStyle = "#000"; ctx.fillRect(x, y+15, 16, 1); ctx.fillRect(x+15, y, 1, 16); // 影
+    ctx.fillStyle = "#cd853f"; ctx.fillRect(x+1, y+1, 14, 1); ctx.fillRect(x+1, y+1, 1, 14); // ハイライト
+}
+
+function drawPixelArtPipe(ctx, x, y, h) {
+    // マリオの緑のパイプ（ image.png-88b845f4-9340-4a06-b9e1-29959afcb970のパイプ）
+    // パイプ主体
+    ctx.fillStyle = "#080"; ctx.fillRect(x, y, 32, h); // 主体緑
+    // グラデーション風ハイライト
+    ctx.fillStyle = "#0a0"; ctx.fillRect(x+2, y, 6, h); 
+    ctx.fillStyle = "#0f0"; ctx.fillRect(x+8, y, 4, h); 
+    ctx.fillStyle = "#080"; ctx.fillRect(x+20, y, 8, h);
+    // パイプの縁
+    ctx.fillStyle = "#080"; ctx.fillRect(x-2, y, 36, 16); // 縁緑
+    ctx.fillStyle = "#0f0"; ctx.fillRect(x, y+2, 4, 12);
+    ctx.fillStyle = "#0a0"; ctx.fillRect(x+28, y+2, 6, 12);
+    ctx.fillStyle = "#000"; ctx.fillRect(x-2, y+15, 36, 1); // 影
+}
+
+// --- エンティティクラス ---
 class Player {
     constructor() { this.w = 16; this.h = 24; this.hp = 3; this.reset(); }
-    reset() { this.x = 50; this.y = 100; this.vx = 0; this.vy = 0; this.facing = 1; this.onGround = false; this.isCrouching = false; this.hipDrop = false; this.invincible = 0; }
+    reset() { this.x = TILE_SIZE*3; this.y = 100; this.vx = 0; this.vy = 0; this.facing = 1; this.onGround = false; this.isCrouching = false; this.hipDrop = false; this.invincible = 0; this.anim = 0; }
     update() {
         if (this.invincible > 0) this.invincible--;
-        let speed = state.inputs.b ? 3.8 : 2.4;
-        if (state.inputs.left) { this.vx = -speed; this.facing = -1; } 
-        else if (state.inputs.right) { this.vx = speed; this.facing = 1; } 
+        
+        let isDashing = state.inputs.b && (state.inputs.left || state.inputs.right); // B長押しでダッシュ
+        let speed = isDashing ? 3.8 : 2.5;
+        
+        if (state.inputs.left) { this.vx = -speed; this.facing = -1; }
+        else if (state.inputs.right) { this.vx = speed; this.facing = 1; }
         else { this.vx *= 0.85; }
 
-        if (state.inputs.a && this.onGround) { this.vy = JUMP_FORCE; this.onGround = false; }
+        if (state.inputs.a && this.onGround) { this.vy = JUMP_FORCE; this.onGround = false; } // Aでジャンプ
         
+        this.isCrouching = state.inputs.down && this.onGround;
         if (state.inputs.down && !this.onGround) { this.hipDrop = true; this.vy = 8; }
         if (this.onGround) this.hipDrop = false;
 
-        this.vy += GRAVITY; this.x += this.vx; this.collide('x'); this.y += this.vy; this.collide('y');
-        if (this.y > canvas.height + 50) this.damage(true);
-        state.cameraX += (this.x - canvas.width/2 - state.cameraX) * 0.12;
-        state.cameraX = Math.max(0, Math.min(state.cameraX, WORLD_END - canvas.width));
+        this.vy += GRAVITY; this.x += this.vx; this.checkCollision('x'); this.y += this.vy; this.checkCollision('y');
+
         if (this.x > WORLD_END - 50) nextSection();
+        if (this.y > canvas.height + 50) this.takeDamage(true);
     }
-    collide(axis) {
+    checkCollision(axis) {
         state.tiles.forEach(t => {
             if (this.x < t.x + t.w && this.x + this.w > t.x && this.y < t.y + t.h && this.y + this.h > t.y) {
                 if (axis === 'x') { this.x -= this.vx; this.vx = 0; }
@@ -104,74 +255,93 @@ class Player {
             }
         });
     }
-    damage(instant = false) {
+    takeDamage(instant = false) {
         if (this.invincible > 0 && !instant) return;
-        this.hp--; this.invincible = 60; this.vy = -4; state.shake = 10;
-        if (this.hp <= 0 || instant) { alert("GameOver"); location.reload(); }
+        this.hp--; state.shake = 15; this.invincible = 60; this.vy = -4; this.vx = -this.facing * 4;
+        if (this.hp <= 0 || instant) { alert("Game Over"); location.reload(); }
     }
     draw() {
-        ctx.save(); if (this.invincible % 4 > 2) ctx.globalAlpha = 0.4;
-        ctx.translate(this.x - state.cameraX, this.y);
-        ctx.fillStyle = "#ffdbac"; ctx.fillRect(2, state.inputs.down?8:0, 12, 12);
-        ctx.fillStyle = "#f44"; ctx.fillRect(2, state.inputs.down?14:12, 12, 12);
-        ctx.restore();
+        this.anim += Math.abs(this.vx) * 0.1;
+        drawPixelArtPlayer(ctx, this.x - state.cameraX, this.y, this.facing, this.isCrouching, this.onGround, this.anim);
     }
 }
 
 class Enemy {
-    constructor(type, x, y) { Object.assign(this, {type, x, y, w: 16, h: 16, vx: -1.2, hp: type==='boss'?50:1, dead: false}); if(type==='boss'){this.w=64;this.h=64;} }
+    constructor(type, x, y) {
+        Object.assign(this, {type, x, y, w: 16, h: 16, vx: -1.2, hp: type==='boss'?30:(type==='dragon'?5:1), t: 0, dead: false});
+        if (type === 'boss') { this.w = 64; this.h = 64; this.vx = 0; }
+    }
     update() {
-        this.x += this.vx;
-        state.tiles.forEach(t => { if (this.x < t.x+t.w && this.x+this.w > t.x && this.y < t.y+t.h && this.y+this.h > t.y) this.vx *= -1; });
+        this.t++;
+        if (this.type === 'mouse') { // トゲゾー（踏むとダメージ、かめはめ波で倒す）
+            this.x += this.vx;
+            state.tiles.forEach(t => { if (this.x < t.x+t.w && this.x+this.w > t.x && this.y < t.y+t.h && this.y+this.h > t.y) this.vx *= -1; });
+        } else if (this.type === 'bat') { // 魔法コウモリ（サイン波、魔法弾）
+            this.x += this.vx; this.y += Math.sin(this.t * 0.08) * 1.2;
+            if (this.t % 180 === 0) spawnProjectile(this.x, this.y + 8, -2, "#0ff", true);
+        } else if (this.type === 'dragon' || this.type === 'boss') { // 龍、巨大龍
+            this.y += Math.sin(this.t * 0.05) * 1.5;
+            if (this.t % 120 === 0) spawnProjectile(this.x, this.y + 20, -2.5, "#ff0", true); // 火
+        }
+
+        // プレイヤー攻撃判定
         let p = state.player;
         if (p.x < this.x + this.w && p.x + p.w > this.x && p.y < this.y + this.h && p.y + p.h > this.y) {
-            if ((p.vy > 0 && p.y < this.y) || p.hipDrop) {
-                if (this.type === 'mouse') p.damage();
-                else { this.hp--; p.vy = -6; if (this.hp <= 0) this.dead = true; }
-            } else { p.damage(); }
+            if (p.vy > 0 && p.y < this.y || p.hipDrop) { // 踏んだ or ヒップドロップ
+                if (this.type === 'mouse') { p.takeDamage(); } // トゲはダメージ
+                else { this.hp--; p.vy = -5; if (this.hp <= 0) this.dead = true; }
+            } else { p.takeDamage(); }
         }
     }
     draw() {
-        ctx.fillStyle = this.type==='mouse'?'#888':(this.type==='bat'?'#606':'#080');
-        ctx.fillRect(this.x-state.cameraX, this.y, this.w, this.h);
-        if(this.type==='mouse'){ ctx.fillStyle="#fff"; ctx.fillRect(this.x-state.cameraX+4,this.y-4,8,4); }
+        if (this.type === 'mouse') drawPixelArtEnemyMouse(ctx, this.x - state.cameraX, this.y, this.vx < 0 ? -1 : 1, this.t);
+        else if (this.type === 'bat') drawPixelArtEnemyBat(ctx, this.x - state.cameraX, this.y, this.t);
+        else drawPixelArtBoss(ctx, this.x - state.cameraX, this.y, this.hp, this.t);
     }
 }
 
-class Bullet {
-    constructor(x,y,vx,isPlayer){Object.assign(this,{x,y,vx,isPlayer,w:10,h:10,life:100,dead:false});}
-    update(){
+class Projectile {
+    constructor(x, y, vx, color, fromEnemy) { Object.assign(this, {x, y, vx, color, fromEnemy, w:8, h:8, life:100}); }
+    update() {
         this.x += this.vx; this.life--;
-        if(this.isPlayer){
-            state.entities.forEach(e=>{
-                if(e instanceof Enemy && !e.dead && this.x < e.x + e.w && this.x + this.w > e.x && this.y < e.y + e.h && this.y + this.h > e.y){
-                    e.hp--; if(e.hp <= 0) e.dead = true;
-                    this.dead = true; // 敵に当たったら弾も消える
+        if (this.fromEnemy) { // 敵の弾
+            let p = state.player; if (this.x < p.x+p.w && this.x+this.w > p.x && this.y < p.y+p.h && this.y+p.h > p.y) { p.takeDamage(); this.dead = true; }
+        } else { // かめはめ波（プレイヤーの弾）
+            state.entities.forEach(e => {
+                if (e instanceof Enemy && this.x < e.x+e.w && this.x+this.w > e.x && this.y < e.y+e.h && this.y+this.h > e.y) {
+                    e.hp--; if (e.hp <= 0) e.dead = true; this.dead = true; state.shake = 5;
                 }
             });
-        } else {
-            let p=state.player;
-            if(this.x < p.x + p.w && this.x + this.w > p.x && this.y < p.y + p.h && this.y + p.h > p.y){
-                p.damage(); this.dead = true;
-            }
         }
     }
-    draw(){ctx.fillStyle=this.isPlayer?"#0ff":"#ff0"; ctx.beginPath();ctx.arc(this.x-state.cameraX+5,this.y+5,5,0,7);ctx.fill();}
+    draw() { ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x-state.cameraX+4, this.y+4, 4, 0, 7); ctx.fill(); }
 }
 
-function spawnBullet(x,y,vx,isPlayer){state.entities.push(new Bullet(x,y,vx,isPlayer));}
+function spawnProjectile(x, y, vx, color, fromEnemy) { state.entities.push(new Projectile(x, y, vx, color, fromEnemy)); }
 
+// --- システム ---
 function generateLevel() {
-    state.tiles = []; state.entities = []; state.cameraX = 0;
+    state.tiles = []; state.entities = []; state.particles = []; state.cameraX = 0;
     for(let i=0; i<WORLD_END/TILE_SIZE; i++) {
-        state.tiles.push({x: i*TILE_SIZE, y: 240, w: TILE_SIZE, h: 40});
-        if (i > 20 && i % 15 === 0) {
-            let et = state.stage < 3 ? 'mouse' : 'bat';
+        // 地面
+        state.tiles.push({x: i*TILE_SIZE, y: 240, w: TILE_SIZE, h: 40, type: 'block'});
+        // マリオ風パイプ、ブロック配置（ image.png-88b845f4-9340-4a06-b9e1-29959afcb970のグリーンパイプ、ブロック）
+        if (i % 15 === 0 && i > 0 && Math.random() < 0.7) { 
+            let h = TILE_SIZE * (state.stage % 3 + 2); // 2~4ブロック分の高さ
+            state.tiles.push({x: i*TILE_SIZE, y: 240 - h, w: 32, h: h, type: 'pipe'}); // グリーンパイプ
+        }
+        if (i % 8 === 0 && Math.random() < 0.6) { // 空中足場（レンガブロック）
+            state.tiles.push({x: i*TILE_SIZE, y: 160, w: 32, h: TILE_SIZE, type: 'block'});
+            state.tiles.push({x: i*TILE_SIZE + 8, y: 140, w: 8, h: 8, type: 'coin'});
+        }
+        // 敵の全盛り配置（トゲゾー、魔法弾bat、ボス）
+        if (i > 15 && i % 22 === 0) {
+            let et = state.stage < 2 ? 'mouse' : (state.stage < 4 ? 'bat' : 'dragon');
             state.entities.push(new Enemy(et, i*TILE_SIZE, 224));
         }
     }
-    if (state.stage === 5 && state.section === 5) {
-        state.boss = new Enemy('boss', 500, 100); state.entities.push(state.boss);
+    if (state.stage === 5 && state.section === 5) { // ラスボス巨大龍
+        state.boss = new Enemy('boss', 600, 100); state.entities.push(state.boss);
         document.getElementById('boss-ui').style.display='block';
     } else { document.getElementById('boss-ui').style.display='none'; }
     state.player.reset();
@@ -179,45 +349,62 @@ function generateLevel() {
 
 function nextSection() {
     state.section++; if (state.section > 5) { state.section = 1; state.stage++; }
-    if (state.stage > 5) { alert("Winner!"); location.reload(); }
+    if (state.stage > 5) { alert("ALL CLEAR! YOU ARE THE HERO!"); location.reload(); }
     generateLevel();
-    document.getElementById('stage-display').innerText = `STAGE ${state.stage}-${state.section}`;
+    document.getElementById('info-text').innerText = `STAGE ${state.stage}-${state.section} | 00`;
 }
 
 function mainLoop() {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    if(state.shake > 0){ ctx.translate(Math.random()*state.shake-state.shake/2, Math.random()*state.shake-state.shake/2); state.shake--; }
-    ctx.fillStyle="#5c94fc"; ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle="#4a80e0"; for(let i=0;i<10;i++) ctx.fillRect(i*250-(state.cameraX*0.3)%250, 100, 120, 150);
-    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (state.shake > 0) { ctx.translate(Math.random()*state.shake-state.shake/2, Math.random()*state.shake-state.shake/2); state.shake *= 0.9; }
+
+    // 背景（パララックス背景） image.png-88b845f4-9340-4a06-b9e1-29959afcb970の緑色背景を意識
+    ctx.fillStyle = "#5c94fc"; ctx.fillRect(0, 0, canvas.width, canvas.height); // 空
+    ctx.fillStyle = "#4facfe"; for(let i=0; i<10; i++) ctx.fillRect(i*250-(state.cameraX*0.2)%250, 100, 120, 150); // 遠景
+    ctx.fillStyle = "#3facfe"; // 近景
+    for(let i=0; i<15; i++) { // カービィの画像のような近景の木
+        ctx.fillStyle = "#3facfe"; ctx.beginPath(); ctx.arc(i*100-(state.cameraX*0.5)%100, 200, 30, 0, 7); ctx.fill();
+        ctx.fillStyle = "#2facfe"; ctx.beginPath(); ctx.arc(i*100-(state.cameraX*0.5)%100+10, 210, 25, 0, 7); ctx.fill();
+    }
+
     state.player.update();
-    state.entities.forEach((e,i)=>{
-        e.update(); e.draw();
-        if(e.dead || e.life < 0) state.entities.splice(i,1);
-        if(e === state.boss && e.dead) nextSection();
+    state.tiles.forEach(t => { 
+        if (t.type === 'block') drawPixelArtBlock(ctx, t.x-state.cameraX, t.y);
+        else if (t.type === 'pipe') drawPixelArtPipe(ctx, t.x-state.cameraX, t.y, t.h);
+        else if (t.type === 'coin') {
+            ctx.fillStyle = "#ffd700"; ctx.beginPath(); ctx.arc(t.x-state.cameraX+4, t.y+4, 4, 0, 7); ctx.fill(); // コイン
+            ctx.fillStyle = "#fff"; ctx.fillRect(t.x-state.cameraX+3, t.y+3, 2, 2); 
+        }
     });
-    state.tiles.forEach(t=>{ctx.fillStyle="#388e3c"; ctx.fillRect(t.x-state.cameraX,t.y,t.w,t.h);});
+    state.entities.forEach((e, i) => {
+        e.update(); e.draw();
+        if (e.dead || e.life < 0) state.entities.splice(i, 1);
+        if (e === state.boss && e.dead) nextSection();
+    });
     state.player.draw();
     
-    ctx.setTransform(1,0,0,1,0,0);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     document.getElementById('hp-display').innerText = "❤".repeat(state.player.hp);
-    if(state.boss) document.getElementById('boss-hp-inner').style.width = (state.boss.hp/50*100)+"%";
+    document.getElementById('info-text').innerText = `STAGE ${state.stage}-${state.section} | ${String(state.coins).padStart(2, '0')}`;
+    if (state.boss) document.getElementById('boss-hp-inner').style.width = (state.boss.hp/50*100) + "%";
+    
     requestAnimationFrame(mainLoop);
 }
 
 const setupInput = (id, k) => {
     const el = document.getElementById(id);
-    const start = (e) => { e.preventDefault(); state.inputs[k] = true; };
-    const end = (e) => { 
+    const press = (e) => { e.preventDefault(); state.inputs[k] = true; };
+    const release = (e) => { 
         e.preventDefault(); 
-        if(k==='b' && state.inputs.bHold < 15) spawnBullet(state.player.x+10,state.player.y+8,state.player.facing*6,true);
+        // Bボタンチョン押しでかめはめ波（ image.png-88b845f4-9340-4a06-b9e1-29959afcb970のプレイヤーのような攻撃）
+        if (k === 'b' && state.inputs.bHold < 15) spawnProjectile(state.player.x+10, state.player.y+10, state.player.facing*6, "#00f", false);
         state.inputs[k] = false; state.inputs.bHold = 0; 
     };
-    el.addEventListener('touchstart', start, {passive: false}); el.addEventListener('touchend', end, {passive: false});
-    el.addEventListener('mousedown', start); el.addEventListener('mouseup', end);
+    el.addEventListener('touchstart', press); el.addEventListener('touchend', release);
+    el.addEventListener('mousedown', press); el.addEventListener('mouseup', release);
 };
-['up','down','left','right','a','b'].forEach(k=>setupInput('b-'+k, k));
-setInterval(()=>{if(state.inputs.b) state.inputs.bHold++;}, 20);
+['up','down','left','right','a','b'].forEach(k => setupInput('b-'+k, k));
+setInterval(() => { if (state.inputs.b) state.inputs.bHold++; }, 20);
 
 state.player = new Player();
 generateLevel();
