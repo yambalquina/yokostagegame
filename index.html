@@ -3,65 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Pixel Hero Saga - Final Fix</title>
+    <title>Pixel Hero Saga - Power Fix</title>
     <style>
-        /* 基本設定 */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: #000; font-family: 'Courier New', monospace; overflow: hidden; touch-action: none; user-select: none; width: 100vw; height: 100vh; }
-        
         #game-wrapper { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; background: #111; }
         canvas { background: #4facfe; width: 100vw; height: auto; max-height: 70vh; image-rendering: pixelated; display: block; margin: 0 auto; }
-
-        /* --- コントローラー層 (SafeArea対応 & 絶対固定) --- */
-        .controls { 
-            position: fixed; top: 0; left: 0; 
-            width: 100vw; height: 100vh; 
-            pointer-events: none; z-index: 100; 
-        }
+        .controls { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 100; }
         .d-pad, .btns { position: absolute; pointer-events: auto; }
-
-        /* 横画面配置（Landscape） */
         @media (orientation: landscape) {
             canvas { max-height: 100vh; width: auto; aspect-ratio: 16 / 9; }
-            .d-pad { 
-                bottom: calc(10% + env(safe-area-inset-bottom)); 
-                left: calc(8% + env(safe-area-inset-left)); 
-            }
-            .btns { 
-                bottom: calc(10% + env(safe-area-inset-bottom)); 
-                right: calc(8% + env(safe-area-inset-right)); 
-                width: 130px; height: 130px; /* ABボタンを収めるコンテナ */
-            }
+            .d-pad { bottom: calc(10% + env(safe-area-inset-bottom)); left: calc(8% + env(safe-area-inset-left)); }
+            .btns { bottom: calc(10% + env(safe-area-inset-bottom)); right: calc(8% + env(safe-area-inset-right)); width: 130px; height: 130px; }
         }
-
-        /* 縦画面配置（Portrait）：底上げ130pxを死守 */
         @media (orientation: portrait) {
             .d-pad { bottom: 130px; left: 15px; }
             .btns { bottom: 130px; right: 15px; width: 130px; height: 130px; }
         }
-
-        /* 十字キー設定：各50px */
         .d-pad { display: grid; grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(3, 50px); gap: 5px; }
-        .btn { 
-            background: #444; border: 3px solid #111; color: white; border-radius: 10px; 
-            display: flex; align-items: center; justify-content: center; font-weight: bold; 
-            box-shadow: 0 4px #000;
-        }
+        .btn { background: #444; border: 3px solid #111; color: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 4px #000; }
         .btn:active { transform: translateY(3px); box-shadow: none; background: #666; }
         .btn-dir { width: 50px; height: 50px; font-size: 20px; background: #333; }
-
-        /* --- ABボタン設定：各60px --- */
-        /* A: 左上(ジャンプ) / B: 右下(攻撃) */
-        #b-a { position: absolute; left: 0; top: 0; width: 60px; height: 60px; border-radius: 50%; background: #4caf50; font-size: 24px; z-index: 101; }
-        #b-b { position: absolute; right: 0; bottom: 0; width: 60px; height: 60px; border-radius: 50%; background: #e91e63; font-size: 24px; z-index: 101; }
-
-        /* UIテキスト */
-        #ui-layer { 
-            position: fixed; 
-            top: calc(10px + env(safe-area-inset-top)); 
-            left: calc(15px + env(safe-area-inset-left)); 
-            color: white; text-shadow: 2px 2px #000; pointer-events: none; z-index: 110; 
-        }
+        #b-a { position: absolute; left: 0; top: 0; width: 60px; height: 60px; border-radius: 50%; background: #4caf50; font-size: 24px; }
+        #b-b { position: absolute; right: 0; bottom: 0; width: 60px; height: 60px; border-radius: 50%; background: #e91e63; font-size: 24px; }
+        #ui-layer { position: fixed; top: calc(10px + env(safe-area-inset-top)); left: calc(15px + env(safe-area-inset-left)); color: white; text-shadow: 2px 2px #000; pointer-events: none; z-index: 110; }
         #hp-display { font-size: 24px; color: #ff5252; }
         .boss-bar { position: fixed; top: 20px; right: 20px; width: 150px; height: 15px; border: 2px solid #fff; background: #000; display: none; }
         #boss-hp-inner { width: 100%; height: 100%; background: #f00; transition: width 0.3s; }
@@ -71,17 +36,12 @@
 
 <div id="game-wrapper">
     <canvas id="gameCanvas"></canvas>
-    
     <div id="ui-layer">
         <div id="hp-display">❤❤❤</div>
         <div id="stage-display" style="font-size: 14px;">STAGE 1-1</div>
         <div id="coin-display" style="font-size: 14px;">COINS: 00</div>
     </div>
-    
-    <div class="boss-bar" id="boss-ui">
-        <div id="boss-hp-inner"></div>
-    </div>
-
+    <div class="boss-bar" id="boss-ui"><div id="boss-hp-inner"></div></div>
     <div class="controls">
         <div class="d-pad">
             <div></div><div class="btn btn-dir" id="b-up">▲</div><div></div>
@@ -89,12 +49,13 @@
             <div></div><div class="btn btn-dir" id="b-down">▼</div><div></div>
         </div>
         <div class="btns">
-            <div class="btn" id="b-a">A</div> <div class="btn" id="b-b">B</div> </div>
+            <div class="btn" id="b-a">A</div>
+            <div class="btn" id="b-b">B</div>
+        </div>
     </div>
 </div>
 
 <script>
-/** @type {HTMLCanvasElement} */
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 canvas.width = 480; canvas.height = 270;
@@ -102,38 +63,34 @@ canvas.width = 480; canvas.height = 270;
 const TILE_SIZE = 16;
 const GRAVITY = 0.22;
 const JUMP_FORCE = -7.5;
-const WORLD_END = 2200; // ステージの長さ
+const WORLD_END = 2200;
 
 let state = {
     stage: 1, section: 1, cameraX: 0, coins: 0,
-    player: null, entities: [], particles: [], tiles: [],
+    player: null, entities: [], tiles: [],
     inputs: { left: false, right: false, up: false, down: false, a: false, b: false, bHold: 0 },
     boss: null, shake: 0
 };
 
-// --- エンティティ ---
 class Player {
     constructor() { this.w = 16; this.h = 24; this.hp = 3; this.reset(); }
-    reset() { this.x = 50; this.y = 100; this.vx = 0; this.vy = 0; this.facing = 1; this.onGround = false; this.isCrouching = false; this.hipDrop = false; this.invincible = 0; this.anim = 0; }
+    reset() { this.x = 50; this.y = 100; this.vx = 0; this.vy = 0; this.facing = 1; this.onGround = false; this.isCrouching = false; this.hipDrop = false; this.invincible = 0; }
     update() {
         if (this.invincible > 0) this.invincible--;
-        let speed = state.inputs.b ? 3.8 : 2.4; // Bでダッシュ
+        let speed = state.inputs.b ? 3.8 : 2.4;
         if (state.inputs.left) { this.vx = -speed; this.facing = -1; } 
         else if (state.inputs.right) { this.vx = speed; this.facing = 1; } 
         else { this.vx *= 0.85; }
 
-        if (state.inputs.a && this.onGround) { this.vy = JUMP_FORCE; this.onGround = false; } // Aでジャンプ
+        if (state.inputs.a && this.onGround) { this.vy = JUMP_FORCE; this.onGround = false; }
         
-        this.isCrouching = state.inputs.down && this.onGround;
         if (state.inputs.down && !this.onGround) { this.hipDrop = true; this.vy = 8; }
         if (this.onGround) this.hipDrop = false;
 
         this.vy += GRAVITY; this.x += this.vx; this.collide('x'); this.y += this.vy; this.collide('y');
-        if (this.y > canvas.height + 50) this.takeDamage(true);
-
+        if (this.y > canvas.height + 50) this.damage(true);
         state.cameraX += (this.x - canvas.width/2 - state.cameraX) * 0.12;
         state.cameraX = Math.max(0, Math.min(state.cameraX, WORLD_END - canvas.width));
-        
         if (this.x > WORLD_END - 50) nextSection();
     }
     collide(axis) {
@@ -147,44 +104,31 @@ class Player {
             }
         });
     }
-    takeDamage(instant = false) {
+    damage(instant = false) {
         if (this.invincible > 0 && !instant) return;
         this.hp--; this.invincible = 60; this.vy = -4; state.shake = 10;
-        if (this.hp <= 0 || instant) { alert("Game Over"); location.reload(); }
+        if (this.hp <= 0 || instant) { alert("GameOver"); location.reload(); }
     }
     draw() {
         ctx.save(); if (this.invincible % 4 > 2) ctx.globalAlpha = 0.4;
         ctx.translate(this.x - state.cameraX, this.y);
-        this.anim += Math.abs(this.vx) * 0.1;
-        let walkY = this.onGround ? Math.abs(Math.sin(this.anim))*2 : 0;
-        ctx.fillStyle = "#ffdbac"; ctx.fillRect(2, this.isCrouching?8:0-walkY, 12, 12); // 頭
-        ctx.fillStyle = "#333"; ctx.fillRect(2, this.isCrouching?8:0-walkY, 12, 3); // 髪
-        ctx.fillStyle = "#f44"; ctx.fillRect(2, this.isCrouching?14:12, 12, 12); // 服
-        ctx.fillStyle = "#000"; ctx.fillRect(this.facing === 1 ? 10 : 4, this.isCrouching?12:4-walkY, 2, 2); // 目
+        ctx.fillStyle = "#ffdbac"; ctx.fillRect(2, state.inputs.down?8:0, 12, 12);
+        ctx.fillStyle = "#f44"; ctx.fillRect(2, state.inputs.down?14:12, 12, 12);
         ctx.restore();
     }
 }
 
 class Enemy {
-    constructor(type, x, y) { Object.assign(this, {type, x, y, w: 16, h: 16, vx: -1.2, hp: type==='boss'?50:1, t: 0}); if(type==='boss'){this.w=64;this.h=64;} }
+    constructor(type, x, y) { Object.assign(this, {type, x, y, w: 16, h: 16, vx: -1.2, hp: type==='boss'?50:1, dead: false}); if(type==='boss'){this.w=64;this.h=64;} }
     update() {
-        this.t++;
-        if (this.type === 'mouse') {
-            this.x += this.vx;
-            state.tiles.forEach(t => { if (this.x < t.x+t.w && this.x+this.w > t.x && this.y < t.y+t.h && this.y+this.h > t.y) this.vx *= -1; });
-        } else if (this.type === 'bat') {
-            this.x += this.vx; this.y += Math.sin(this.t * 0.1) * 1.2;
-            if (this.t % 150 === 0) spawnBullet(this.x, this.y+8, -2, "#0ff");
-        } else if (this.type === 'boss') {
-            this.y += Math.sin(this.t * 0.05) * 1.5;
-            if (this.t % 100 === 0) spawnBullet(this.x, this.y+30, -3, "#ff0");
-        }
+        this.x += this.vx;
+        state.tiles.forEach(t => { if (this.x < t.x+t.w && this.x+this.w > t.x && this.y < t.y+t.h && this.y+this.h > t.y) this.vx *= -1; });
         let p = state.player;
         if (p.x < this.x + this.w && p.x + p.w > this.x && p.y < this.y + this.h && p.y + p.h > this.y) {
-            if (p.vy > 0 && p.y < this.y || p.hipDrop) {
-                if (this.type === 'mouse') p.takeDamage();
+            if ((p.vy > 0 && p.y < this.y) || p.hipDrop) {
+                if (this.type === 'mouse') p.damage();
                 else { this.hp--; p.vy = -6; if (this.hp <= 0) this.dead = true; }
-            } else { p.takeDamage(); }
+            } else { p.damage(); }
         }
     }
     draw() {
@@ -195,26 +139,33 @@ class Enemy {
 }
 
 class Bullet {
-    constructor(x,y,vx,c){Object.assign(this,{x,y,vx,c,w:8,h:8,life:100});}
+    constructor(x,y,vx,isPlayer){Object.assign(this,{x,y,vx,isPlayer,w:10,h:10,life:100,dead:false});}
     update(){
-        this.x+=this.vx; this.life--;
-        if(this.c==="#00f"){ // プレイヤーの弾
-            state.entities.forEach(e=>{if(e instanceof Enemy && this.x<e.x+e.w && this.x+this.w>e.x && this.y<e.y+e.h && this.y+this.h>e.y){e.hp--;this.dead=true;}});
-        } else { // 敵の弾
-            let p=state.player; if(this.x<p.x+p.w && this.x+this.w>p.x && this.y<p.y+p.h && this.y+p.h>p.y){p.takeDamage();this.dead=true;}
+        this.x += this.vx; this.life--;
+        if(this.isPlayer){
+            state.entities.forEach(e=>{
+                if(e instanceof Enemy && !e.dead && this.x < e.x + e.w && this.x + this.w > e.x && this.y < e.y + e.h && this.y + this.h > e.y){
+                    e.hp--; if(e.hp <= 0) e.dead = true;
+                    this.dead = true; // 敵に当たったら弾も消える
+                }
+            });
+        } else {
+            let p=state.player;
+            if(this.x < p.x + p.w && this.x + this.w > p.x && this.y < p.y + p.h && this.y + p.h > p.y){
+                p.damage(); this.dead = true;
+            }
         }
     }
-    draw(){ctx.fillStyle=this.c; ctx.beginPath();ctx.arc(this.x-state.cameraX+4,this.y+4,4,0,7);ctx.fill();}
+    draw(){ctx.fillStyle=this.isPlayer?"#0ff":"#ff0"; ctx.beginPath();ctx.arc(this.x-state.cameraX+5,this.y+5,5,0,7);ctx.fill();}
 }
 
-function spawnBullet(x,y,vx,c){state.entities.push(new Bullet(x,y,vx,c));}
+function spawnBullet(x,y,vx,isPlayer){state.entities.push(new Bullet(x,y,vx,isPlayer));}
 
-// --- システム ---
 function generateLevel() {
     state.tiles = []; state.entities = []; state.cameraX = 0;
     for(let i=0; i<WORLD_END/TILE_SIZE; i++) {
         state.tiles.push({x: i*TILE_SIZE, y: 240, w: TILE_SIZE, h: 40});
-        if (i > 20 && i % 20 === 0) {
+        if (i > 20 && i % 15 === 0) {
             let et = state.stage < 3 ? 'mouse' : 'bat';
             state.entities.push(new Enemy(et, i*TILE_SIZE, 224));
         }
@@ -228,7 +179,7 @@ function generateLevel() {
 
 function nextSection() {
     state.section++; if (state.section > 5) { state.section = 1; state.stage++; }
-    if (state.stage > 5) { alert("ALL STAGES CLEAR!"); location.reload(); }
+    if (state.stage > 5) { alert("Winner!"); location.reload(); }
     generateLevel();
     document.getElementById('stage-display').innerText = `STAGE ${state.stage}-${state.section}`;
 }
@@ -236,13 +187,15 @@ function nextSection() {
 function mainLoop() {
     ctx.clearRect(0,0,canvas.width,canvas.height);
     if(state.shake > 0){ ctx.translate(Math.random()*state.shake-state.shake/2, Math.random()*state.shake-state.shake/2); state.shake--; }
-    
-    // 背景
     ctx.fillStyle="#5c94fc"; ctx.fillRect(0,0,canvas.width,canvas.height);
     ctx.fillStyle="#4a80e0"; for(let i=0;i<10;i++) ctx.fillRect(i*250-(state.cameraX*0.3)%250, 100, 120, 150);
     
     state.player.update();
-    state.entities.forEach((e,i)=>{e.update();e.draw(); if(e.dead||e.life<0) state.entities.splice(i,1); if(e===state.boss&&e.dead) nextSection();});
+    state.entities.forEach((e,i)=>{
+        e.update(); e.draw();
+        if(e.dead || e.life < 0) state.entities.splice(i,1);
+        if(e === state.boss && e.dead) nextSection();
+    });
     state.tiles.forEach(t=>{ctx.fillStyle="#388e3c"; ctx.fillRect(t.x-state.cameraX,t.y,t.w,t.h);});
     state.player.draw();
     
@@ -257,7 +210,7 @@ const setupInput = (id, k) => {
     const start = (e) => { e.preventDefault(); state.inputs[k] = true; };
     const end = (e) => { 
         e.preventDefault(); 
-        if(k==='b' && state.inputs.bHold < 15) spawnBullet(state.player.x+10,state.player.y+10,state.player.facing*5,"#00f");
+        if(k==='b' && state.inputs.bHold < 15) spawnBullet(state.player.x+10,state.player.y+8,state.player.facing*6,true);
         state.inputs[k] = false; state.inputs.bHold = 0; 
     };
     el.addEventListener('touchstart', start, {passive: false}); el.addEventListener('touchend', end, {passive: false});
